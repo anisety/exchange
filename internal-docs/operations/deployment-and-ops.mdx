@@ -1,0 +1,118 @@
+---
+title: "Deployment And Ops"
+description: "How the split ECS plus EC2 deployment is structured and how to update it safely."
+---
+
+## Deployed shape
+
+- one ECS/Fargate service for the Next.js client
+- one ALB in front of both client and backend paths
+- one EC2 instance for the Rust exchange core and market-data services
+- one local PostgreSQL instance on the EC2 host
+- one systemd service named `exchange`
+- one systemd service named `market-data-service`
+- GitHub-backed checkout at `/home/ec2-user/exchange-v2`
+
+## Important paths
+
+- repo: `/home/ec2-user/exchange-v2`
+- backend env: `/home/ec2-user/exchange-v2/exchange.env`
+- binary: `/home/ec2-user/exchange-v2/exchange/target/release/exchange`
+- market-data binary: `/home/ec2-user/exchange-v2/exchange/target/release/market-data-service`
+- ECS stack: `exchange-client`
+- ALB hostname: `exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com`
+
+## Update procedure
+
+From your local machine:
+
+```bash
+git push origin main
+AWS_PROFILE=personal infra/client-ecs/build_and_push.sh
+IMAGE_URI=490004617163.dkr.ecr.us-east-2.amazonaws.com/exchange-client:TAG \
+infra/client-ecs/deploy_stack.sh
+ssh -i "quant-exchange.pem" ec2-user@16.59.150.9 '
+  cd ~/exchange-v2 &&
+  git pull --ff-only &&
+  cd exchange &&
+  source "$HOME/.cargo/env" &&
+  cargo build --release --bin exchange --bin market-data-service &&
+  sudo cp deploy/systemd/market-data-service.service /etc/systemd/system/market-data-service.service &&
+  sudo systemctl daemon-reload &&
+  sudo systemctl enable market-data-service &&
+  sudo systemctl restart market-data-service &&
+  sudo systemctl restart exchange &&
+  sudo systemctl status market-data-service --no-pager &&
+  sudo systemctl status exchange --no-pager
+'
+```
+
+Verify:
+
+```bash
+curl http://exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com/api/health
+curl http://exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com/health
+```
+
+## Current backend env model
+
+The deployed backend should define at least:
+
+- `BIND_ADDR`
+- `ADMIN_API_TOKEN`
+- `CHECKPOINT_PATH`
+- `CHECKPOINT_INTERVAL_SECONDS`
+- `WS_BROADCAST_BUFFER`
+- `WS_MARKET_BROADCAST_WORKERS`
+- `MARKET_DATA_SERVICE_SOCKET=/tmp/exchange-marketdata.sock`
+- `MARKET_DATA_SERVICE_RETRY_BACKOFF_MS`
+- `PER_USER_REQUESTS_PER_SECOND`
+
+## Operational checks
+
+Service status:
+
+```bash
+ssh -i "quant-exchange.pem" ec2-user@16.59.150.9 \
+  "sudo systemctl status market-data-service --no-pager && sudo systemctl status exchange --no-pager"
+```
+
+Logs:
+
+```bash
+ssh -i "quant-exchange.pem" ec2-user@16.59.150.9 \
+  "sudo journalctl -u market-data-service -f & sudo journalctl -u exchange -f"
+```
+
+## Current public edge
+
+Public endpoint:
+
+- `https://exchange.jamesxu.dev`
+- `wss://exchange.jamesxu.dev/ws`
+
+ALB debug endpoint:
+
+- `http://exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com`
+
+Target edge shape:
+
+```text
+Internet / external DNS
+        |
+       ALB
+      /   \
+   ECS     EC2:8080
+```
+
+Current reality:
+
+- the ALB is live and already serving both ECS client traffic and EC2 backend traffic on its AWS hostname
+- the exchange process listens on `0.0.0.0:8080` on the EC2 host so the ALB backend target group can reach it
+- ACM certificate `arn:aws:acm:us-east-2:490004617163:certificate/0ef4c31a-90b2-437c-bed8-8f23b74fc0f7` is issued for `exchange.jamesxu.dev`
+- the ALB serves both `80` and `443`
+- `exchange.jamesxu.dev` now points at the ALB and serves both the client and backend paths
+
+## Current credential debt
+
+GitHub access on the EC2 host is temporarily configured with a stored PAT. Replace it with a deploy key or machine-user SSH key, then revoke the PAT.

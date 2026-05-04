@@ -1,0 +1,47 @@
+---
+title: "Amend Order"
+description: "Reduce the remaining quantity on an existing order over WebSocket."
+---
+Send this message whenever you need to reduce the remaining quantity on an open order; it cannot increase the order size.
+
+<RequestExample>
+
+```json Client Message
+{
+  "op": "amend_order",
+  "request_id": "req-3",
+  "order_id": "66377526-7b98-485a-8c40-7024e68fa3c5",
+  "remaining": 1
+}
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json Ack Response
+{"type":"ack","op":"amend_order","request_id":"req-3"}
+```
+
+</ResponseExample>
+
+## Client fields
+
+- `op` must be `amend_order`.
+- `request_id` is client-defined and echoed back in `ack` or `reject`.
+- `order_id` is the target open order.
+- `remaining` is the new remaining quantity and can only reduce the order.
+
+## Failure behavior
+
+Failures are returned as `reject` messages. Common reasons are:
+
+- `unauthenticated`
+- `order_not_found`
+- `order_not_owned`
+- `invalid_remaining`
+- `invalid_amend`
+
+## Notes
+
+- The server emits an `order_state` message if the amend succeeds.

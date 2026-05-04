@@ -1,0 +1,91 @@
+---
+title: "Rate limits"
+description: "How throttling works for your API key across REST and WebSocket—and how to stay under the limit."
+---
+
+The exchange protects fairness and capacity with a **single shared bucket** per competitor API key. This page is the **authoritative** description of what counts toward that bucket and how errors look.
+
+## Default limit
+
+By default you get **500 operations per 10 seconds** per key, refilling smoothly (about **50 per second** on average).
+
+**In practice:**
+
+- One **bucket** per API key—not per IP or per transport.
+- The **same** bucket covers authenticated **REST** (account + trading) and authenticated **WebSocket trading** messages.
+- After idle time you can **burst** up to **500** calls before you need to wait for refill.
+
+## What counts (one token each)
+
+### Authenticated REST
+
+- `GET /api/v1/user`
+- `GET /api/v1/portfolio`
+- `GET /api/v1/balance`
+- `GET /api/v1/positions`
+- `GET /api/v1/open-orders`
+- `GET /api/v1/fills`
+- `POST /api/v1/orders`
+- `PATCH /api/v1/orders/{order_id}`
+- `DELETE /api/v1/orders/{order_id}`
+
+### Authenticated WebSocket (trading only)
+
+- `submit_order`
+- `cancel_order`
+- `amend_order`
+
+## What does not count
+
+These are **free** with respect to this bucket:
+
+- [Health](/rest/health) and [Get Markets](/rest/markets)
+- Opening a WebSocket
+- `authenticate`
+- Market-data **subscribe** / **unsubscribe** (`data`)
+- **Inbound** messages from the server (books, fills, heartbeats, etc.)
+
+## Why the budget feels “shared”
+
+Switching from REST to WebSocket **does not** reset your allowance. If you spend **300** tokens polling REST, only about **200** are immediately available for socket trading until time passes.
+
+**Tips:**
+
+- Space out authenticated **GET**s; do not poll account routes on every tick.
+- Reserve capacity for **cancels** and **amends** in fast markets.
+- If you need sustained throughput, design near the **~50/s** steady refill rate.
+
+## When you are over the limit
+
+### REST — HTTP `429`
+
+```json
+{
+  "error": "per-user rate limit exceeded: max 500 ops per 10s"
+}
+```
+
+### WebSocket — `reject`
+
+```json
+{
+  "type": "reject",
+  "op": "submit_order",
+  "request_id": "req-123",
+  "code": "rate_limit_exceeded",
+  "message": "per-user rate limit exceeded: max 500 ops per 10s"
+}
+```
+
+## Client guidance
+
+- Treat **`429`** and **`rate_limit_exceeded`** as **retryable** backoff, not fatal bugs.
+- Prefer WebSocket for **live** state; use REST for **bootstrap** and **reconciliation**.
+- Track your own send rate per key so you slow down **before** the server pushes back.
+
+## See also
+
+- [Authentication](/reference/authentication)
+- [REST API](/reference/rest-api)
+- [WebSocket API](/reference/websocket-api)
+- [Error codes](/reference/error-codes)

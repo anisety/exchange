@@ -1,0 +1,73 @@
+---
+title: "Submit Order"
+description: "Submit a new limit or market order over WebSocket."
+---
+
+WebSocket order entry is useful when you want order actions and execution events on the same connection.
+
+Use `submit_order` whenever you want to keep trades and confirmations on one socket.
+
+<RequestExample>
+
+```json Limit client message
+{
+  "op": "submit_order",
+  "request_id": "req-1",
+  "market": "BTC-USD",
+  "side": "BUY",
+  "order_type": "limit",
+  "price": 100,
+  "quantity": 2
+}
+```
+
+```json Market client message
+{
+  "op": "submit_order",
+  "request_id": "req-2",
+  "market": "BTC-USD",
+  "side": "BUY",
+  "order_type": "market",
+  "price": 0,
+  "quantity": 2
+}
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json Ack Response
+{"type":"ack","op":"submit_order","request_id":"req-1"}
+```
+
+```json Reject Response
+{
+  "type": "reject",
+  "op": "submit_order",
+  "request_id": "req-1",
+  "code": "position_limit_exceeded",
+  "message": "projected net position for BTC-USD would be 1005; limit is +/-1000"
+}
+```
+
+</ResponseExample>
+
+## Client fields
+
+- `op` must be `submit_order`.
+- `request_id` is client-defined and echoed back in `ack` or `reject`.
+- `market`, `side`, `price`, `quantity`, and `order_type` follow the same rules as [Create Order](/rest/submit-order).
+
+## Success behavior
+
+- An `ack` confirms the server accepted the request.
+- After acceptance, expect later `order_state` and `fill` messages as matching and account state evolve.
+- `order_type` defaults to `limit` when omitted.
+- Market orders consume opposite-side liquidity immediately and never rest on the book.
+- If a market order finds some liquidity, it can sweep multiple price levels and still finishes with `remaining: 0`.
+
+## Notes
+
+- The same validation rules apply as REST order submission.
+- If a market order has no opposite-side liquidity at all, the server returns `reject` with code `no_liquidity`.

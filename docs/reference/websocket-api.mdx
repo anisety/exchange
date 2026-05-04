@@ -1,0 +1,59 @@
+---
+title: "WebSocket API"
+description: "One connection for the public data stream, private fills and order updates, and optional low-latency trading messages."
+---
+
+Use **WebSocket** when you want low latency and a single stream for both the public book and your own activity. You still keep **REST** handy for bootstrap and recovery.
+
+The exchange exposes one public **market-data** channel on the socket:
+
+- **`data`** — Public, **aggregated** price levels, derived from the canonical order flow and batched every **100ms**.
+
+```text
+wss://exchange.jamesxu.dev/ws
+```
+
+<Columns cols={3}>
+  <Card title="Authenticate" href="/websocket/authenticate">
+    Required for trading messages and your private fill/order stream.
+  </Card>
+  <Card title="Data stream" href="/websocket/subscribe-data-stream">
+    Subscribe once per connection to `data` for one market; process snapshot then deltas.
+  </Card>
+  <Card title="Server messages" href="/websocket/server-messages">
+    Heartbeats, book updates, fills, admin notices, and when to resync.
+  </Card>
+</Columns>
+
+## How the connection behaves
+
+- The server sends periodic **`heartbeat`** messages.
+- **Market data** is **sequenced per market**; each batch tells you the first and last sequence in the batch.
+- **`data` `delta`** frames can span a range from **`start_sequence`** through **`sequence`**.
+- **One** market-data subscription per TCP connection today—open another socket per extra market if you need more.
+- **`data`** does not require auth.
+- `snapshot` and `delta` describe the **public** book; your own resting orders are clearest from **`order_state`** and REST.
+- After you authenticate, the **same** socket can carry market data, trading messages, and user-scoped events.
+- **`submit_order`**, **`cancel_order`**, and **`amend_order`** on the socket count toward the **same** authenticated budget as competitor REST; see [Rate limits](/reference/rate-limits).
+
+## Practical tips
+
+- Keep **REST** in your client for startup and after errors—even if WebSocket is your main path.
+- Prefer **one WebSocket per market** if you follow multiple books at full fidelity.
+- Plan for **`market_state`**, **`market_deleted`**, **`fill`**, **`order_state`**, **`admin_message`**, and **`resync_required`**—they are part of a complete integration, not edge cases.
+- **Book building (`data`):** apply **`snapshot`**, then each **`delta`**; confirm **`start_sequence`** matches what you expect, then set your cursor to **`sequence`**.
+- **`order_state`** is the best live view of **your** resting orders alongside REST [open orders](/rest/open-orders).
+
+## Typical flow
+
+1. Connect to `wss://exchange.jamesxu.dev/ws`.
+2. [Authenticate](/websocket/authenticate) if you need trading or private events.
+3. [Subscribe to the data stream](/websocket/subscribe-data-stream).
+4. Send [Submit](/websocket/submit-order), [Amend](/websocket/amend-order), or [Cancel](/websocket/cancel-order) as needed.
+5. Handle [Server messages](/websocket/server-messages)—especially **`snapshot`**, **`delta`**, **`market_state`**, **`market_deleted`**, **`fill`**, **`order_state`**, and **`resync_required`**.
+
+## Current limitations
+
+- One market-data subscription per connection.
+- No historical replay or gap-fill API for market or user streams.
+- User events do not carry a durable client-visible sequence you can resume across days—re-bootstrap from REST when reconnecting.

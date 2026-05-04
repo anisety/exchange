@@ -1,0 +1,57 @@
+---
+title: "Client Deployment"
+description: "Current ECS deployment shape for the Next.js client."
+---
+
+## Current state
+
+- The exchange backend is live on EC2.
+- The Next.js client is deployed on ECS/Fargate behind an ALB.
+- The ALB hostname is `exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com`.
+- The public hostname is `https://exchange.jamesxu.dev`.
+- HTTPS is terminated at the ALB with ACM.
+
+## Environment variables
+
+Use these for a deployed client:
+
+```text
+NEXT_PUBLIC_EXCHANGE_HTTP_URL=https://exchange.jamesxu.dev
+NEXT_PUBLIC_EXCHANGE_WS_URL=wss://exchange.jamesxu.dev/ws
+NEXT_PUBLIC_EXCHANGE_MARKETS=BTC-USD,ETH-USD,SOL-USD
+```
+
+`NEXT_PUBLIC_EXCHANGE_API_KEY` is optional and mainly useful for local testing or a pinned kiosk-like client. Admin access is now determined by backend validation, not a client-side key list.
+
+## ECS notes
+
+The repo already includes:
+
+- `client/Dockerfile`
+- standalone Next.js output configuration
+- `/api/health` route for container health checks
+- `infra/client-ecs/stack.yaml`
+- `infra/client-ecs/build_and_push.sh`
+- `infra/client-ecs/request_certificate.sh`
+- `infra/client-ecs/deploy_stack.sh`
+
+Current routing split at the ALB:
+
+- ECS client:
+  - `/`
+  - `/login`
+  - `/trade`
+  - `/admin`
+  - `/api/auth/*`
+  - `/api/health`
+- EC2 backend:
+  - `/api/v1/*`
+  - `/ws`
+  - `/health`
+  - `/docs*`
+  - `/api-doc/*`
+
+Still needed around deployment:
+
+- Rollout and rollback procedure
+- Frontend runtime monitoring

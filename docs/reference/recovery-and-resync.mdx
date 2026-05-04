@@ -1,0 +1,107 @@
+---
+title: "Recovery and resync"
+description: "Keep your book and account state correct after sequence gaps, slow consumers, or a server restart."
+---
+
+Markets on WebSocket are **sequenced**. When you fall behind or the server detects a gap, you will see **`resync_required`**. After a **restart**, books start fresh even though balances and positions may reload from checkpoint—so REST is your friend.
+
+## How market-data sequencing works
+
+- Each **`subscribe`** is followed by a **`snapshot`**.
+- The public **`data`** stream rebuilds **aggregated** price levels.
+- Each **`delta`** includes **`start_sequence`** (first event in the batch) and **`sequence`** (last in the batch).
+- Batches arrive in **order**; one frame may contain **multiple** events.
+- **`resync_required`** means you should **discard** local book state for that stream and **subscribe again**.
+
+## When you see `resync_required` (market data)
+
+Example:
+
+```json
+{
+  "type": "resync_required",
+  "channel": "data",
+  "market": "BTC-USD",
+  "expected_sequence": 5,
+  "current_sequence": 9,
+  "reason": "market sequence gap detected; resubscribe for a fresh snapshot"
+}
+```
+
+**What to do**
+
+1. Compare your last applied sequence to **`expected_sequence`**; treat the server as source of truth.
+2. Clear **local** book state for that market.
+3. Send **`subscribe`** again for the same **`channel`** and **`market`**.
+4. Replace state from the new **`snapshot`**.
+5. Continue from the new baseline **`sequence`**.
+
+## When the user event stream lags
+
+Example:
+
+```json
+{
+  "type": "resync_required",
+  "channel": "user",
+  "market": null,
+  "expected_sequence": null,
+  "current_sequence": null,
+  "reason": "user event stream lagged by N messages; refresh account state and reconnect if needed"
+}
+```
+
+**What to do**
+
+1. `GET /api/v1/user`
+2. `GET /api/v1/positions`
+3. `GET /api/v1/balance`
+4. `GET /api/v1/open-orders`
+5. `GET /api/v1/fills`
+6. **Reconnect** WebSocket if you still cannot trust local order state.
+
+## When market metadata lags
+
+Example:
+
+```json
+{
+  "type": "resync_required",
+  "channel": "markets",
+  "market": null,
+  "expected_sequence": null,
+  "current_sequence": null,
+  "reason": "market event stream lagged by N messages; refresh market state from REST if needed"
+}
+```
+
+**What to do**
+
+1. `GET /api/v1/markets`
+2. Replace cached definitions in your client.
+3. Keep applying live **`market_state`** messages after you are caught up.
+
+## After a server restart
+
+When the process comes back:
+
+- **Checkpoint** (if enabled) restores **users**, **markets**, **balances**, **positions**, and related metadata.
+- **Resting open orders are not** in that checkpoint—in-memory books are **empty** and old resting orders are **gone** from the server’s perspective.
+- **Market-data sequences** rebuild from the new live state (empty until new orders arrive).
+- There is **no** replay API for old WebSocket history.
+
+**Treat a restart like a new session:** pull [open orders](/rest/open-orders), [portfolio](/rest/portfolio), and [markets](/rest/markets) over REST before you trust UI or bot memory.
+
+## What the platform guarantees today
+
+**You can rely on**
+
+- Checkpoint restore for users, markets, balances, and positions (when configured and a file exists).
+- **`resync_required`** when market-data or metadata streams detect gaps or lag.
+
+**Not provided yet**
+
+- Restoring resting orders across restarts.
+- Full settlement history replay.
+- Stable sequence numbers across process restarts.
+- A historical gap-fill HTTP API.

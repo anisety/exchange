@@ -1,0 +1,102 @@
+---
+title: "Error codes"
+description: "REST responses and WebSocket error and reject codes—so your client can react clearly."
+---
+
+Your integration will be smoother if you map **HTTP status codes** and WebSocket **`error`** / **`reject`** payloads to user-visible messages and retry logic.
+
+## REST error body
+
+Errors return a single string field:
+
+```json
+{
+  "error": "human readable message"
+}
+```
+
+Use the message in logs or a debug panel while you are building; in production, translate it to a clear line for your team.
+
+## REST status codes
+
+| Status | What it usually means |
+| --- | --- |
+| `400` | Request body or fields are invalid (market, price, tick, quantity, amend, or market-order liquidity). |
+| `401` | Missing or wrong **`x-api-key`**. |
+| `429` | You exceeded the shared authenticated budget (default **500 ops / 10s**). See [Rate limits](/reference/rate-limits). |
+| `403` | The resource exists but belongs to **another** competitor. |
+| `404` | Unknown order, market, or user for that operation. |
+| `409` | Business rule conflict—limits, market status, duplicate identifiers, etc. |
+| `500` | Engine unavailable, overflow, or unexpected server fault—retry with care. |
+
+## WebSocket `type: "error"`
+
+Protocol issues you should fix **before** relying on trading:
+
+- `invalid_message`
+- `unsupported_channel`
+- `invalid_api_key`
+- `unauthenticated` (for example, a trading message before a successful **`authenticate`**)
+
+Example:
+
+```json
+{
+  "type": "error",
+  "code": "unsupported_channel",
+  "message": "supported market-data channel is data"
+}
+```
+
+## WebSocket `type: "reject"`
+
+Trading requests that fail validation or risk checks arrive as **`reject`**. Handling these keeps your local model aligned with the exchange.
+
+Codes you may see:
+
+- `unauthenticated`
+- `trading_disabled`
+- `invalid_market`
+- `market_not_configured`
+- `market_disabled`
+- `market_settled`
+- `invalid_price`
+- `price_too_large`
+- `tick_size_violation`
+- `price_below_minimum`
+- `price_above_maximum`
+- `no_liquidity`
+- `invalid_quantity`
+- `quantity_too_large`
+- `quantity_below_minimum`
+- `invalid_remaining`
+- `invalid_amend`
+- `order_not_found`
+- `order_not_owned`
+- `position_limit_exceeded`
+- `rate_limit_exceeded`
+- `engine_unavailable`
+- `overflow`
+
+Example:
+
+```json
+{
+  "type": "reject",
+  "op": "submit_order",
+  "request_id": "req-1",
+  "code": "position_limit_exceeded",
+  "message": "projected net position for BTC-USD would be 1005; limit is +/-1000"
+}
+```
+
+## Health: `status` field
+
+[GET /health](/rest/health) includes a top-level **`status`**:
+
+- **`ok`** — Checkpoint writer is healthy (or checkpointing is off), and core dispatch queues are not overloaded or stopped.
+- **`degraded`** — Persistence or a dispatch queue reports retry, backpressure, or stop—worth alerting on if you operate dashboards.
+
+See the [Health](/rest/health) page for field definitions.
+
+Admin-only failure modes are **not** listed here; this reference targets **competitor** clients.

@@ -1,0 +1,73 @@
+---
+title: "Amend Order"
+api: "PATCH /api/v1/orders/{order_id}"
+description: "Reduce the remaining quantity on an existing open order."
+---
+
+Use this endpoint when you want to reduce the `remaining` size of an existing order; you cannot grow the order back bigger.
+
+<RequestExample>
+
+```bash Request
+curl \
+  -X PATCH \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "content-type: application/json" \
+  https://exchange.jamesxu.dev/api/v1/orders/ORDER_ID \
+  -d '{"remaining":1}'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 Response
+{
+  "order": {
+    "id": "66377526-7b98-485a-8c40-7024e68fa3c5",
+    "trader_id": "9d64e278-8b56-46e9-9cab-18c5b22f2fb9",
+    "market": "BTC-USD",
+    "side": "BUY",
+    "price": 100,
+    "quantity": 2,
+    "remaining": 1,
+    "created_at": "2026-03-18T15:28:01.342510Z"
+  }
+}
+```
+
+</ResponseExample>
+
+## Headers
+
+<ParamField header="x-api-key" type="string" required>
+  Assigned competitor API key.
+</ParamField>
+
+## Path parameters
+
+<ParamField path="order_id" type="string" required>
+  Order identifier to amend.
+</ParamField>
+
+## Body parameters
+
+<ParamField body="remaining" type="u64" required>
+  New remaining quantity. This can only reduce the order and must stay above zero.
+</ParamField>
+
+## Response fields
+
+<ResponseField name="order" type="object" required>
+  Updated open order after the amendment is applied.
+</ResponseField>
+
+<ResponseField name="order.remaining" type="u64" required>
+  New remaining quantity resting on the book.
+</ResponseField>
+
+## Notes
+
+- You cannot increase `remaining`.
+- Amending to zero is not supported; use cancel instead.
+- You can only amend your own order.

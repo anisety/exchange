@@ -1,0 +1,58 @@
+---
+title: "REST API"
+description: "Overview of competitor REST endpoints—markets, account, and orders—with links to each page."
+---
+
+**REST** is the right tool when you need a clear, request–response answer: after a disconnect, when you are unsure of local state, or when a market changes status. Use it alongside WebSocket; many teams use WebSocket for speed and REST for truth.
+
+<Columns cols={3}>
+  <Card title="Public endpoints" href="#public-endpoints">
+    Health and market list—no API key required.
+  </Card>
+  <Card title="Account endpoints" href="#account-endpoints">
+    Who you are, balances, positions, orders, and fills.
+  </Card>
+  <Card title="Trading endpoints" href="#trading-endpoints">
+    Create, amend, and cancel limit and market orders over HTTP.
+  </Card>
+</Columns>
+
+## Suggested first calls
+
+1. [Get User](/rest/user) — confirm identity.
+2. [Get Markets](/rest/markets) — symbols, status, tick size, minimum size.
+3. [Get Portfolio](/rest/portfolio) — positions and how risk limits apply to you.
+4. After reconnects or doubt, [Get Open Orders](/rest/open-orders) and [Get Fills](/rest/fills).
+5. [Create Order](/rest/submit-order), [Amend Order](/rest/amend-order), [Cancel Order](/rest/cancel-order) when you want HTTP order flow.
+
+## Public endpoints
+
+- [Health](/rest/health)
+- [Get Markets](/rest/markets)
+
+## Account endpoints
+
+- [Get User](/rest/user)
+- [Get Portfolio](/rest/portfolio)
+- [Get Balance](/rest/balance)
+- [Get Positions](/rest/positions)
+- [Get Open Orders](/rest/open-orders)
+- [Get Fills](/rest/fills)
+
+## Trading endpoints
+
+- [Create Order](/rest/submit-order)
+- [Amend Order](/rest/amend-order)
+- [Cancel Order](/rest/cancel-order)
+
+## Request conventions
+
+- **`side`:** `BUY` or `SELL`
+- **`order_type`:** `limit` or `market` (default `limit`)
+- **`price`**, **`quantity`**, **`remaining`:** unsigned integers
+- **Market orders:** send **`price: 0`**; the engine matches against the opposite side of the book
+- **Position style:** you may buy or sell from flat, go long or short, subject to risk limits
+- **Risk:** default worst-case net exposure per market is **±1000** contracts (unless organizers assign a different role)
+- **Rate limit:** authenticated REST + authenticated WebSocket trading share **500 ops / 10s** by default; see [Rate limits](/reference/rate-limits)
+- **Filters:** [Get Open Orders](/rest/open-orders) and [Get Fills](/rest/fills) accept optional **`market`** query parameter
+- **Recovery:** when in doubt, prefer REST to realign your client with the server

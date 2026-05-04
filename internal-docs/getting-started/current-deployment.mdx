@@ -1,0 +1,77 @@
+---
+title: "Current Deployment"
+description: "The live split deployment shape: ECS client plus EC2 backend behind an ALB."
+---
+
+## Live public hosts
+
+- Elastic IP: `16.59.150.9`
+- Public HTTPS hostname: `https://exchange.jamesxu.dev`
+- Public health: `https://exchange.jamesxu.dev/health`
+- Public WebSocket: `wss://exchange.jamesxu.dev/ws`
+- ALB hostname: `exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com`
+- SSH user: `ec2-user`
+- On-box exchange origin: `http://0.0.0.0:8080`
+
+Current intended edge shape is ALB path routing:
+
+- ECS client for `/`, `/login`, `/trade`, `/admin`, `/api/auth/*`, `/api/health`
+- EC2 backend for `/api/v1/*`, `/ws`, `/health`, `/docs*`, `/api-doc/*`
+
+The ECS stack is live, ACM is attached, and `exchange.jamesxu.dev` now terminates HTTPS at the ALB.
+
+## Runtime layout on the EC2 host
+
+- Repo: `/home/ec2-user/exchange-v2`
+- Backend binary: `/home/ec2-user/exchange-v2/exchange/target/release/exchange`
+- Backend env file: `/home/ec2-user/exchange-v2/exchange.env`
+- Service: `exchange`
+- Database: local PostgreSQL on the same EC2 machine
+
+## Deployment source of truth
+
+The EC2 host now runs from a GitHub clone. Deployment updates should come from `origin/main`, not from manual file transfer.
+
+Current flow:
+
+```bash
+git push origin main
+ssh -i "quant-exchange.pem" ec2-user@16.59.150.9 '
+  cd ~/exchange-v2 &&
+  git pull --ff-only &&
+  cd exchange &&
+  source "$HOME/.cargo/env" &&
+  cargo build --release &&
+  sudo systemctl restart exchange &&
+  sudo systemctl status exchange --no-pager
+'
+```
+
+## Health and logs
+
+Check health:
+
+```bash
+curl http://exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com/api/health
+curl http://exchange-client-alb-1466111370.us-east-2.elb.amazonaws.com/health
+```
+
+Check service state:
+
+```bash
+ssh -i "quant-exchange.pem" ec2-user@16.59.150.9 \
+  'sudo systemctl status exchange --no-pager'
+```
+
+Tail logs:
+
+```bash
+ssh -i "quant-exchange.pem" ec2-user@16.59.150.9 \
+  'sudo journalctl -u exchange -f'
+```
+
+## Current deployment caveats
+
+- GitHub access on the EC2 host is temporarily PAT-based
+- PostgreSQL is local to the instance, not managed RDS
+- The ALB hostname is still useful for direct AWS-side debugging even though the public hostname is live

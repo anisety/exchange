@@ -1,0 +1,48 @@
+---
+title: "Get User"
+api: "GET /api/v1/user"
+description: "Fetch the authenticated trader profile associated with your API key."
+---
+
+Call this endpoint early—ideally first among authenticated routes—to confirm the server sees the same team identity you expect.
+
+<RequestExample>
+
+```bash Request
+curl https://exchange.jamesxu.dev/api/v1/user \
+  -H "x-api-key: YOUR_API_KEY"
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 Response
+{
+  "trader_id": "c7f8c572-8a50-4dbd-a1e1-9f452774b636",
+  "team_number": "TEAM-042"
+}
+```
+
+</ResponseExample>
+
+## Headers
+
+<ParamField header="x-api-key" type="string" required>
+  Assigned competitor API key.
+</ParamField>
+
+## Response fields
+
+<ResponseField name="trader_id" type="string" required>
+  Stable identity used throughout fills, positions, and portfolio responses.
+</ResponseField>
+
+<ResponseField name="team_number" type="string" required>
+  Team identifier associated with the API key. Use this for UI display instead of the internal username.
+</ResponseField>
+
+## Notes
+
+- If `team_number` looks wrong, pause trading and contact organizers.
+- Make this the **first** authenticated call in a fresh session.

@@ -1,0 +1,62 @@
+---
+title: "Market lifecycle"
+description: "How market status affects what you can trade—and how to stay in sync when organizers change a market."
+---
+
+**Market `status`** is part of your **trading logic**, not just labels on a screen. Combine periodic [Get Markets](/rest/markets) calls with live **`market_state`** WebSocket messages so you react as soon as something changes.
+
+**`admin_message`** is for human-readable notices; **`market_state`** is the **authoritative** metadata update for the market definition itself.
+
+## Status values
+
+Each row from [Get Markets](/rest/markets) includes **`status`**.
+
+### `enabled`
+
+- Market is **open** for trading.
+- New orders are accepted; resting orders can match.
+- The symbol participates in portfolio and settlement logic.
+
+### `disabled`
+
+- Market is **visible** but **new orders are rejected**.
+- You can still query state.
+- **Pause** new submissions until the market is **`enabled`** again.
+
+### `settled`
+
+- **No more trading** in that symbol.
+- Organizers set a final **`settlement_price`**.
+- Open **positions** flatten against that price; resting **orders** for that market are canceled.
+- **PnL** for that market becomes **realized**.
+- **Refresh** portfolio, positions, and fills from REST.
+
+## Competition-wide trading halt
+
+Organizers can turn off **submissions** for the **whole** exchange. You may still see live quotes while **new** orders are rejected—**always** honor **`reject`** messages from order entry, not only the book.
+
+## Fields to read before you send orders
+
+From [Get Markets](/rest/markets), watch at least:
+
+- `market_id`
+- `status`
+- `tick_size`
+- `min_order_quantity`
+- `min_price`
+- `max_price`
+- `reference_price`
+- `settlement_price` (once known)
+
+**`tick_size`**, optional **`min_price`** / **`max_price`**, and **`min_order_quantity`** decide whether the server accepts your **`price`** and **`quantity`**.
+
+## Suggested client behavior
+
+1. Load markets at **startup**.
+2. **Do not** place orders when **`status`** is **`disabled`** or **`settled`**.
+3. Apply **`market_state`** immediately; after reconnect or **`resync_required`**, call [Get Markets](/rest/markets) again.
+4. After **settlement**, re-bootstrap **account** state—balances and PnL can change in one tick.
+
+## Rankings and finals
+
+Organizer rankings are private. Use settlement as the point where **that market’s** PnL is **stable** on the server.

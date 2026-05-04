@@ -1,0 +1,71 @@
+---
+title: "Exchange API"
+description: "Welcome to the Quant@Illinois Trading Competition API. Here you will find everything you need to connect, trade, and stay in sync when markets move or reconnect."
+---
+
+Welcome. This site documents the exchange **REST** and **WebSocket** APIs you will use during the competition. You can bootstrap and recover over **REST**, stream aggregated market data and private events over **WebSocket**, and keep your client in sync with a single public **data stream** channel.
+
+<Columns cols={2}>
+  <Card title="Competition guide" href="/reference/competition-guide">
+    Start here for event-day flow, rules that affect orders, and what to do when markets settle.
+  </Card>
+
+  <Card title="Authentication" href="/reference/authentication">
+    How to use your API key on REST and WebSocket, plus the first calls we recommend.
+  </Card>
+
+  <Card title="Rate limits" href="/reference/rate-limits">
+    One shared budget for authenticated REST and WebSocket trading—know what counts before you loop.
+  </Card>
+
+  <Card title="REST API" href="/reference/rest-api">
+    Account state, health, markets, and order management over HTTP—great for recovery and certainty.
+  </Card>
+
+  <Card title="WebSocket API" href="/reference/websocket-api">
+    Live books, fills, order updates, and fast order actions on a single connection.
+  </Card>
+</Columns>
+
+## Base URLs
+
+- **REST:** `https://exchange.jamesxu.dev`
+- **WebSocket:** `wss://exchange.jamesxu.dev/ws`
+
+## What to build
+
+1. Confirm who you are with [Get User](/rest/user).
+2. Load [Get Markets](/rest/markets) and cache `status`, `tick_size`, `min_order_quantity`, and any configured price bounds for each symbol you trade.
+3. Bootstrap risk and positions with [Get Portfolio](/rest/portfolio).
+4. Subscribe to the public **`data`** stream for aggregated depth updates.
+5. Handle **`fill`**, **`order_state`**, **`admin_message`**, and **`resync_required`** on WebSocket.
+6. After reconnects, halts, or settlement, refresh state from REST so your client matches the server.
+
+## Rules at a glance
+
+- **Prices and quantities** are integers.
+- **`side`** is **`BUY`** or **`SELL`**.
+- **Standard teams** have a worst-case **±1000** net position cap per market (unless organizers assign a different role).
+- The public WebSocket **`data`** stream is aggregated by price level and batched roughly every **100ms**.
+- **Authenticated** REST and WebSocket trading share one bucket: **500 operations per 10 seconds** by default. Details: [Rate limits](/reference/rate-limits).
+- **After settlement**, positions for that market flatten at the settlement price and PnL is realized there.
+
+## More depth
+
+<Columns cols={2}>
+  <Card title="Market lifecycle" href="/reference/market-lifecycle">
+    Enabled, disabled, and settled—and how that affects what you can send.
+  </Card>
+
+  <Card title="Recovery and resync" href="/reference/recovery-and-resync">
+    Sequence gaps, stream lag, and restarts—how to get back to a correct book and account view.
+  </Card>
+
+  <Card title="Error codes" href="/reference/error-codes">
+    REST status codes and WebSocket **`error`** / **`reject`** codes worth handling in your UI.
+  </Card>
+
+  <Card title="Server messages" href="/websocket/server-messages">
+    Reference for WebSocket message shapes from the exchange.
+  </Card>
+</Columns>

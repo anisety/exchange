@@ -1,0 +1,55 @@
+---
+title: "Competition Quickstart"
+description: "How a competition user receives credentials and connects to the live exchange."
+---
+
+## 1. Your competition credentials
+
+Ops will hand you a username and a single API key. That key is your identity and the only credential the exchange respects, so guard it like a secret weapon.
+
+## 2. Get into the Next.js client
+
+Want a UI? Head to `/login`, paste the API key, and the client will prove it to the backend. You get an HTTP-only cookie, and the app drops you straight into `/trade` (or `/admin` if you are running ops).
+
+## 3. Talk to the REST API
+
+The API key works everywhere, so try it against `/api/v1/user` and make sure things light up:
+
+```bash
+curl \
+  -H "x-api-key: YOUR_API_KEY" \
+  https://exchange.jamesxu.dev/api/v1/user
+```
+
+You should get back your trader profile and confirmation that the system knows you.
+
+## 4. Stream live data
+
+WebSockets are the fast lane:
+
+```text
+wss://exchange.jamesxu.dev/ws
+```
+
+Send:
+
+```json
+{"op":"authenticate","api_key":"YOUR_API_KEY"}
+```
+
+Then subscribe to the books you care about:
+
+```json
+{"op":"subscribe","channel":"l3","market":"BTC-USD"}
+```
+
+## 5. Troubleshooting resyncs
+
+- If `channel: "l3"` returns `resync_required`, drop and re-subscribe to rebuild the book.
+- If `channel: "user"` demands a resync, query your REST positions again and reconnect.
+
+## 6. Quick operational notes
+
+- Live endpoints are `https://exchange.jamesxu.dev` and `wss://exchange.jamesxu.dev/ws`; skip HTTP-only ports.
+- Sequence numbers restart whenever we redeploy, so treat message gaps as expected after a reboot.
+- We reload open orders from persistence on startup, but full settlement reconciliation is still in motion, so keep a close eye on your PnL after a restart.

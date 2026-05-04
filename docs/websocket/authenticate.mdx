@@ -1,0 +1,46 @@
+---
+title: "Authenticate"
+description: "Authenticate a WebSocket session with your assigned API key."
+---
+
+Authenticate when you need **WebSocket order entry** or **private** `fill` / `order_state` events. The public **`data`** stream works without logging in.
+
+<RequestExample>
+
+```json Client Message
+{"op":"authenticate","api_key":"YOUR_API_KEY"}
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json Success Response
+{
+  "type": "authenticated",
+  "trader_id": "9d64e278-8b56-46e9-9cab-18c5b22f2fb9",
+  "team_number": "TEAM-042"
+}
+```
+
+</ResponseExample>
+
+## Client fields
+
+- `op` must be `authenticate`.
+- `api_key` is your assigned competitor API key.
+
+## Success fields
+
+- `type` is `authenticated`.
+- `trader_id` is the stable identity for the socket session.
+- `team_number` is the team identifier associated with the API key.
+
+## Failure behavior
+
+Invalid credentials are returned as a WebSocket `error` message with `code = "invalid_api_key"`.
+
+## Notes
+
+- Authenticate once per socket before sending trading messages.
+- After authentication, the same socket can carry the public `data` stream, trading messages, and user-scoped events.
